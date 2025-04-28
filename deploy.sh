@@ -38,7 +38,7 @@ if [ "$git_branch" = "main" ] && ! $silent; then
 fi
 
 # 🛠️ 2. Clean and rebuild
-echo "🧼 Cleaning old builds..."
+echo "🧼 Cleaning Jupyter Book..."
 jb clean . || echo "⚠️ Clean skipped (already clean?)"
 
 [ -f bash/bash_clean.sh ] && bash bash/bash_clean.sh || echo "ℹ️ No extended clean script."
@@ -79,19 +79,46 @@ cd "$(git rev-parse --show-toplevel)" || { echo "❌ Git root not found."; exit 
 echo "🌿 Planting flicks..."
 python kitabo/ensi/python/plant_flicks_frac.py --percent 23 || echo "⚠️ Flick planting issue."
 
-# 🧾 7. Commit + push
+# 🏷️ 7. Git Tagging
+today=$(date +"%Y.%m.%d")
+existing_tags=$(git tag --list "v$today-*")
+next_tag_number=$(( $(echo "$existing_tags" | wc -l) + 1 ))
+new_tag="v$today-$next_tag_number"
+
+echo "🏷️ Creating tag [$new_tag]..."
+git tag "$new_tag"
+
+# 📜 8. Update CHANGELOG.md
+echo "🖋️ Updating CHANGELOG.md..."
+{
+    echo "## [$new_tag] - $(date +"%Y-%m-%d %H:%M")"
+    echo ""
+    echo "- $commit_message"
+    echo ""
+} >> CHANGELOG.md
+
+# 🗄️ 9. Backup _build/html
+backup_dir="backups"
+mkdir -p "$backup_dir"
+backup_file="$backup_dir/build-$(date +"%Y%m%d-%H%M%S").zip"
+
+echo "📦 Archiving _build/html into [$backup_file]..."
+zip -r "$backup_file" _build/html >/dev/null
+
+# 🧾 10. Commit + push
 echo "🧾 Staging changes..."
 git add .
 
 echo "✍️ Committing..."
-git commit -m "$commit_message" || echo "⚠️ Nothing to commit."
+git commit -m "$commit_message" || echo "⚠️ Nothing new to commit."
 
-echo "⬆️ Pushing to $git_remote/$git_branch..."
-git push "$git_remote" "$git_branch" || echo "⚠️ Push failed."
+echo "⬆️ Pushing code and tags to [$git_remote/$git_branch]..."
+git push "$git_remote" "$git_branch"
+git push "$git_remote" "$new_tag"
 
-# 🔔 8. Notify success
+# 🔔 11. Notify success
 if command -v osascript &> /dev/null; then
-    osascript -e 'display notification "Deploy complete!" with title "Ukubona Deploy 🚀"'
+    osascript -e 'display notification "Elite Deploy Complete 🚀🌍" with title "Ukubona Flight Deck"'
 fi
 
-echo "✅ Deployment complete."
+echo "✅ Full deploy completed."
